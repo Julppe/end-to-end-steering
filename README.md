@@ -43,9 +43,9 @@ Run the script train.py. By default the training is done with 80/20 training and
 
 The training scripts generates three output files when it completes: 
 
-- weights: By default saved to the weights folder.
-- errors.csv: A CSV file containing training and validation errors for each training batch. By default saved to the outputs folder.
-- errors.png: A quick plot showing the evolution of the training and validation errors during training. By default saved to the outputs folder and regenerated every batch based on a moving average of the last 20 batches. 
+- **weights**: By default saved to the weights folder.
+- **errors.csv**: A CSV file containing training and validation errors for each training batch. By default saved to the outputs folder.
+- **errors.png**: A quick plot showing the evolution of the training and validation errors during training. By default saved to the outputs folder and regenerated every batch based on a moving average of the last 20 batches. 
 
 The default naming format for the output files is this: ```[modelname]_[itlm/no_itlm]_[augs/no_augs]_[alpha*100].[file_format]```
 
@@ -57,8 +57,8 @@ To save the the terminal output of the training scripts use ```tee``` as such:
 
 The testing script calculates mean absolute error over the validation set and outputs it in the terminal.
 
-```python3 test.py --model=PilotNet```
+```python3 test.py --model=PilotNet --weights=weights/PilotNet_itlm_augs_10.pth```
 
-The sample generation script generates an image consisting of rows of three images with their corresponding predicted and true labels as titles.
+The sample generation script generates an image consisting of rows of three images from the validation set with their corresponding predicted and true labels as titles. The script can be used to visualize random samples or the highest or lowest loss samples which is indicated with the argument ```--quality``` where highest loss = ```worst```. The default arguments are the ones shown in the sample terminal input here.
 
-```python3 generate_samples.py --model=PilotNet```
+```python3 generate_samples.py --model=PilotNet --sample_path=outputs/samples.png --quality=worst --augmented=False --rows=2 --weights=weights/PilotNet_itlm_augs_10.pth```
