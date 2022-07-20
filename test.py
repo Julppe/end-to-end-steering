@@ -15,7 +15,7 @@ validation_split = 1-train_split
 # Transforms
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Argparse model name
-model_names = ['SimpleCNN', 'PilotNet']
+model_names = ['PilotNet']
 parser = argparse.ArgumentParser(description='Train a model')
 parser.add_argument('model',
                         metavar='model',
@@ -23,16 +23,17 @@ parser.add_argument('model',
                         help='name of the model to validate',
                         default='SimpleCNN')
 
+parser.add_argument('--weights',
+                        metavar='weights',
+                        type=str,
+                        help='Path to the network weight file. Default=weights/PilotNet_itlm_augs_10.pth',
+                        default='weights/PilotNet_itlm_augs_10.pth',
+                        required=False)
+
 args = parser.parse_args()
 if args.model not in model_names:
     print("Wrong model name, check the available models!")
     sys.exit()
-
-elif args.model == 'SimpleCNN':
-    from models.SimpleCNN import SimpleCNN
-    weight_file = 'SimpleCNN.pth'
-    net = SimpleCNN().float().to(device)
-    transformations = transforms.Compose([ToTensor()])
 
 elif args.model == 'PilotNet':
     from models.PilotNet import PilotNet

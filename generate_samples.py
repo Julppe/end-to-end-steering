@@ -3,8 +3,6 @@ import argparse
 import sys
 from torchvision import transforms, utils
 import torch.nn as nn
-import torch.optim as optim
-import atexit
 import matplotlib.pyplot as plt
 from udacity_dataloader import UdacityDataset
 import warnings
@@ -22,15 +20,13 @@ def main():
     args = arguments()
     model = pick_model(args.model)
     transformations = add_transforms(args)
-    loader = create_loader(args, transformations)
-    plot(args, loader)
+    loader = create_loader(args, transformations, model)
+    plot(args, loader, model)
 
 
 # Function for generating the sample plots 
 # and outputting the image file.
-# Arguments:
-# - dataloader: torch.dataloader
-def plot(args, dataloader):
+def plot(args, dataloader, net):
     # Generate samples for one batch of the loader
     with torch.no_grad():
         for i_batch, sample_batched in enumerate(dataloader):
@@ -61,23 +57,23 @@ def arguments():
     parser.add_argument('--model',
                             metavar='model',
                             type=str,
-                            help='name of the model to validate',
+                            help='Name of the model to validate.',
                             default='PilotNet',
                             required=False)
 
     parser.add_argument('--sample_path',
                             metavar='sample_path',
                             type=str,
-                            help='path to the sample image file',
+                            help='Path to the sample image file.',
                             default='samples.png',
                             required=False)
 
     parser.add_argument('--udacity',
-                            help='use the Udacity dataset to generate the samples',
+                            help='Visualise samples from the Udacity dataset.',
                             action='store_true')
 
     parser.add_argument('--quality',
-                            help='define if the samples are generated from the best, worst or random data. Default=worst, options=random, best, worst',
+                            help='Define if the samples are generated from the best, worst or random data. Default=worst. Options=random, best, worst.',
                             metavar='quality',
                             type=str,
                             default='worst',
@@ -85,13 +81,20 @@ def arguments():
     
     parser.add_argument('--augmented',
                             action='store_true',
-                            help='define if the plotted samples are augmented with the training agmentations, default=False')
+                            help='Define if the plotted samples are augmented with the training agmentations. Default=False')
 
     parser.add_argument('--rows',
                             metavar='rows',
                             type=int,
-                            help='number of 3 sample rows to be visualized',
+                            help='Number of 3 sample rows to be visualized.',
                             default=2,
+                            required=False)
+
+    parser.add_argument('--weights',
+                            metavar='weights',
+                            type=str,
+                            help='Path to the network weight file. Default=weights/PilotNet_itlm_augs_10.pth',
+                            default='weights/PilotNet_itlm_augs_10.pth',
                             required=False)
 
     args = parser.parse_args()
@@ -109,7 +112,7 @@ def pick_model(name):
         print("Wrong model name, check the available models!")
         sys.exit()
 
-    elif args.model == 'PilotNet':
+    elif name == 'PilotNet':
         from models.PilotNet import PilotNet
         weight_file = 'weights/PilotNet_itlm_augs_10.pth'
         net = PilotNet().float().to(device)
@@ -149,7 +152,7 @@ def add_transforms(args):
                                             Rescale((66, 200)),
                                             ToTensor()
                                             ])
-    elif args.augmentations:
+    elif args.augmented:
         transformations = transforms.Compose([
                                             Crop((640, 1920)),
                                             Rescale((66, 200)),
@@ -169,7 +172,7 @@ def add_transforms(args):
 
 
 # Create the dataloader for the specified set and transforms
-def create_loader(args, transformations):
+def create_loader(args, transformations, net):
     batch_size = args.rows * 3 # Only one batch is generated which determines the number of visualized samples
     if args.udacity:
         data = UdacityDataset('udacity_data/steering.csv', 'udacity_data/center', transform=transformations)
@@ -193,17 +196,17 @@ def create_loader(args, transformations):
     # create a smaller loader from sorted samples
     if args.quality != 'random':
         with torch.no_grad():
-        sample_losses = {}
-        criterion = nn.MSELoss(reduction='none')
-        for itlm_batch, sample in enumerate(train_loader):
-            with torch.no_grad():
-                images = sample['image'].to(device)
-                labels = sample['steering_angle'].to(device).float()
-                itlm_losses = criterion(net(images.float()), labels.view(labels.shape[0], 1)).float()
-                i = 0
-                for itlm_loss in itlm_losses:
-                    sample_losses[itlm_batch*batch_size+i] = itlm_loss
-                    i += 1
+            sample_losses = {}
+            criterion = nn.MSELoss(reduction='none')
+            for itlm_batch, sample in enumerate(loader):
+                with torch.no_grad():
+                    images = sample['image'].to(device)
+                    labels = sample['steering_angle'].to(device).float()
+                    itlm_losses = criterion(net(images.float()), labels.view(labels.shape[0], 1)).float()
+                    i = 0
+                    for itlm_loss in itlm_losses:
+                        sample_losses[itlm_batch*batch_size+i] = itlm_loss
+                        i += 1
         # Trim the data based on highest loss values:
         # Sorting from highest loss onwards if the worst samples are used
         worst = (args.quality == 'worst')
@@ -212,8 +215,8 @@ def create_loader(args, transformations):
         subsample_indices = islice(sorted_sample_losses.items(), int(full_length * (1 - 0.98))) # 2% of the top samples
         # Every third element from the keys to switch to 10 fps
         dataset = torch.utils.data.Subset(data, np.array(list(subsample_indices))[:,0]*3) 
-        data_transformed = MapDataset(train_set, transformations) # Add training augmentations
-        loader = DataLoader(training_data_transformed, batch_size=batch_size, shuffle=True)
+        data_transformed = MapDataset(dataset, transformations) # Add training augmentations
+        loader = DataLoader(data_transformed, batch_size=batch_size, shuffle=True)
 
     return 
 

@@ -5,14 +5,11 @@ from torchvision import transforms, utils
 import torch.nn as nn
 import torch.optim as optim
 import atexit
-import skimage
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from itertools import islice
 import pandas as pd
-
-# TODO: Refactor
 
 
 # Save model parameters in case of a generic error or keyboard interrupt
@@ -27,7 +24,7 @@ atexit.register(exit_handler)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device: ' + str(device))
 # Argparse for model name, ITLM, augmentations
-model_names = ['SimpleCNN','PilotNet']
+model_names = ['PilotNet']
 parser = argparse.ArgumentParser(description='Train a model')
 parser.add_argument('model',
                         metavar='model',
@@ -36,16 +33,22 @@ parser.add_argument('model',
                         default='SimpleCNN')
 parser.add_argument('--no_itlm',
                         help='define if the itlm algorithm is not used in training',
-                        action='store_false')
+                        action='store_true')
 parser.add_argument('--no_augs',
                         help='Define if data augmentations are not used',
-                        action='store_false')
+                        action='store_true')
 parser.add_argument('--alpha',
                         metavar='alpha',
                         help='define alpha value used for the ITLM algorithm',
                         type=float,
                         default=0.05,
                         required=False)
+parser.add_argument('--image_path',
+                        metavar='image_path',
+                        type=str,
+                        help='path of the image folder',
+                        default='data/camera_lidar/20180810_150607/camera/cam_front_center/')
+parser.add_argument('')
 
 
 args = parser.parse_args()
@@ -58,17 +61,11 @@ if args.model not in model_names:
     print("Wrong model name, check the available models!")
     sys.exit()
 
-elif args.model == 'SimpleCNN':
-    from models.SimpleCNN import SimpleCNN
-    weight_file = 'SimpleCNN.pth'
-    net = SimpleCNN().float().to(device)
-    transformations = transforms.Compose([Rescale((360, 640)), ToTensor()])
-
 elif args.model == 'PilotNet':
     from models.PilotNet import PilotNet
     weight_file = 'PilotNet_itlm.pth'
     net = PilotNet().float().to(device)
-    if args.no_augs: # TODO: refactor argaparse for this to be less confusing.
+    if not args.no_augs:
         training_transformations = transforms.Compose([
                                         Crop((640, 1920)),
                                         Rescale((66, 200)),
@@ -96,15 +93,15 @@ else:
 
 # Define the names of the plot and weight outputs based on the model arguments
 output_file_name = args.model
-if args.no_itlm:
+if not args.no_itlm:
     output_file_name = output_file_name + '_itlm'
 else:
     output_file_name = output_file_name + '_no_itlm'
-if args.no_augs:
+if not args.no_augs:
     output_file_name = output_file_name + '_augs'
 else:
     output_file_name = output_file_name + '_no_augs'
-if args.no_itlm:
+if not args.no_itlm:
     output_file_name = output_file_name + '_' + str(int(itlm_alpha*100))
 
 plot_file = 'outputs'+'/'+ output_file_name + '.png'
@@ -120,7 +117,7 @@ validation_split = 1-train_split
 
 # Because of the way the dataloader is built, the initialisation takes quite long
 # but this makes every iteration of the training loop faster reducing total training time
-data = ImgSteeringDataset(bus_file='data/camera_lidar/20180810_150607/bus/20180810150607_bus_signals.json', img_dir='data/camera_lidar/20180810_150607/camera/cam_front_center/')
+data = ImgSteeringDataset(bus_file='data/camera_lidar/20180810_150607/bus/20180810150607_bus_signals.json', img_dir=args.image_path)
 
 # 80/20 random train-validation split
 dataset_size = len(data)
@@ -128,16 +125,10 @@ dataset_size = len(data)
 # Only use every third image for both sets to change from 30 fps to 10 fps
 indices = list(range(0, dataset_size, 3))
 split = int(np.floor((validation_split * dataset_size))/3)
-#itlm_split = int(np.floor((validation_split * dataset_size)))
 train_indices, val_indices = indices[split:], indices[:split]
-#itlm_indices = list(range(dataset_size))[itlm_split:]
 train_dataset = torch.utils.data.Subset(data, train_indices)
 valid_dataset = torch.utils.data.Subset(data, val_indices)
-#itlm_dataset = torch.utils.data.Subset(data, itlm_indices)
 itlm_dataset = train_dataset
-
-# Random split, for comparison
-#train_dataset, valid_dataset = torch.utils.data.random_split(data, [int(np.floor(dataset_size*0.8)), int(np.ceil(dataset_size*0.2))])
 
 # Validation is done without the data augmentations
 training_data_transformed = MapDataset(train_dataset, training_transformations)
@@ -171,7 +162,7 @@ for epoch in range(epochs):
     batch_loss = 0
     valid_loss = 0
     # Generate new training subset using ITLM from the second epoch onwards
-    if epoch >= 1 and args.no_itlm:
+    if epoch >= 1 and not args.no_itlm:
         print("-------------------------------------")
         print("Generating new trainloader using ITLM")
         print("-------------------------------------")
@@ -180,6 +171,8 @@ for epoch in range(epochs):
         # Set net.eval() because the net is only used to generate the losses for ITLM
         net.eval()
         # ITLM loader is the same as train loader with no augmentations and full 30 fps image set
+        # The new trainloader is generated by sorting the indices of the losses and creating a 
+        # new dataloader using the lowest loss indices from the training set.
         for itlm_batch, sample in enumerate(itlm_loader):
             with torch.no_grad():
                 images = sample['image'].to(device)
@@ -200,6 +193,7 @@ for epoch in range(epochs):
         print("-------------------------------------------")
 
     print("Starting epoch {:d}:".format(epoch))
+    # The training loop
     for i_batch in range(len(train_loader)):
         loss = 0
         net.train()
@@ -257,7 +251,7 @@ for epoch in range(epochs):
             subset_loss = 0
             valid_loss = 0
 
-    # After each epoch print the epoch average training error 
+    # After each epoch print the last average errors 
     # and number of files in the epoch
     print("Epoch {:d} finished. Final numbers:".format(epoch))
     print("Last moving average training error: {:f}".format(train_loss_mms[-1]))
