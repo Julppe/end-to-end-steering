@@ -5,6 +5,7 @@ from torchvision import transforms, utils
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from udacity_dataloader import UdacityDataset
+from itertools import islice
 import warnings
 warnings.simplefilter(action='ignore')
 
@@ -65,7 +66,7 @@ def arguments():
                             metavar='sample_path',
                             type=str,
                             help='Path to the sample image file.',
-                            default='samples.png',
+                            default='outputs/samples.png',
                             required=False)
 
     parser.add_argument('--udacity',
