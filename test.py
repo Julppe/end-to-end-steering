@@ -27,7 +27,7 @@ parser.add_argument('--weights',
                         metavar='weights',
                         type=str,
                         help='Path to the network weight file. Default=weights/PilotNet_itlm_augs_10.pth',
-                        default='weights/PilotNet_itlm_augs_10.pth',
+                        default='weights/PilotNet.pth',
                         required=False)
 
 args = parser.parse_args()
