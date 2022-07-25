@@ -4,6 +4,8 @@ This repository contains the necessary code for training and testing a simple en
 
 The contents of this repository should be referenced and used with caution as the study done with this code yielded poor results for end-to-end steering performance. 
 
+The research report describing the research questions and motivation, as well as the results, can be found in the document **study.pdf**.
+
 ## Contents
 
 ### Folders
@@ -15,6 +17,7 @@ The contents of this repository should be referenced and used with caution as th
 
 ### Files
 
+- **study.pdf** A pdf document describing the research questions and motivation, as well as the results derived from these scripts. 
 - **dataloader.py**: Custom Pytorch dataloader for the A2D2 dataset with RGB images as samples and steering angles as labels.
 - **generate_samples.py**: Script for visualising samples from the dataset. Usage described in detail in the usage: testing section.
 - **README.md**: This README file.
@@ -57,8 +60,14 @@ To save the the terminal output of the training scripts use ```tee``` as such:
 
 The testing script calculates mean absolute error over the validation set and outputs it in the terminal.
 
-```python3 test.py --model=PilotNet --weights=weights/PilotNet_itlm_augs_10.pth```
+```python3 test.py --model=PilotNet --weights=weights/PilotNet.pth```
 
 The sample generation script generates an image consisting of rows of three images from the validation set with their corresponding predicted and true labels as titles. The script can be used to visualize random samples or the highest or lowest loss samples which is indicated with the argument ```--quality``` where highest loss = ```worst```. The default arguments are the ones shown in the sample terminal input here.
 
-```python3 generate_samples.py --model=PilotNet --sample_path=outputs/samples.png --quality=worst --augmented=False --rows=2 --weights=weights/PilotNet_itlm_augs_10.pth```
+```python3 generate_samples.py --model=PilotNet --sample_path=outputs/samples.png --quality=worst --augmented=False --rows=2 --weights=weights/PilotNet.pth```
+
+The sample weights included in the weights folder are trained with the augmentations and without the use of the iterative trimmed loss minimization. These can be used for quick testing of the system.
+
+### Further development
+
+For further development using these scripts, I would suggest taking a more in depth look at the dataloader scripts. Both **dataloader.py** and **udacity_dataloader.py** can be easily modified for usage with other datasets and more data augmentations and preprocessing can also be implemented fairly easily. The research report, **study.pdf**, also includes some suggestions for related further research topics in the Discussion section.
